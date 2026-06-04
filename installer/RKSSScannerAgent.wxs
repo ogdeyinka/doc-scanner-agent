@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WiX starter definition for an MSI-based RKSS Scanner Agent installer.
+  This file is intended for IT packaging teams that require MSI deployment.
+
+  Recommended build path:
+    1. Install WiX Toolset v4.
+    2. Harvest publish\rkss-win-x64 into components with heat/harvest tooling, or add files explicitly.
+    3. Build with wix.exe.
+
+  The EXE installer script RKSSScannerAgent.iss is the simpler ready-to-use path.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="RKSS Scanner Agent"
+    Manufacturer="RK Systems & Services"
+    Version="1.0.0"
+    UpgradeCode="a3d7792d-77f0-4e96-9b68-0f953c6a9958"
+    Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of RKSS Scanner Agent is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="InstallFolder" Name="RKSS Scanner Agent" />
+    </StandardDirectory>
+
+    <Feature Id="MainFeature" Title="RKSS Scanner Agent" Level="1">
+      <ComponentGroupRef Id="PublishedAgentFiles" />
+      <ComponentRef Id="ScannerServiceComponent" />
+    </Feature>
+
+    <DirectoryRef Id="InstallFolder">
+      <Component Id="ScannerServiceComponent" Guid="2b5a67df-7ddc-4f61-b887-d4750eef11fd">
+        <File Id="ScannerAgentExe" Source="..\publish\rkss-win-x64\RKSS.ScannerAgent.exe" KeyPath="yes" />
+        <ServiceInstall
+          Id="ScannerServiceInstall"
+          Type="ownProcess"
+          Name="RKSSScannerAgent"
+          DisplayName="RKSS Scanner Agent"
+          Description="Local RKSS DIAS scanner bridge for WIA/TWAIN-compatible desktop scanners."
+          Start="auto"
+          Account="LocalSystem"
+          ErrorControl="normal" />
+        <ServiceControl
+          Id="ScannerServiceControl"
+          Name="RKSSScannerAgent"
+          Start="install"
+          Stop="both"
+          Remove="uninstall"
+          Wait="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Replace this group with harvested publish\rkss-win-x64 files for a production MSI. -->
+    <ComponentGroup Id="PublishedAgentFiles" Directory="InstallFolder" />
+  </Package>
+</Wix>

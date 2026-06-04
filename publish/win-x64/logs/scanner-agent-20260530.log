@@ -1,0 +1,35 @@
+2026-05-30 12:54:10.412 +01:00 [INF] Now listening on: http://127.0.0.1:8890
+2026-05-30 12:54:10.444 +01:00 [INF] Application started. Press Ctrl+C to shut down.
+2026-05-30 12:54:10.448 +01:00 [INF] Hosting environment: Production
+2026-05-30 12:54:10.454 +01:00 [INF] Content root path: E:\laragon\www\namadias\nama-scanner-agent\publish\win-x64
+2026-05-30 12:54:27.617 +01:00 [INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:8890/scanners - null null
+2026-05-30 12:54:28.123 +01:00 [INF] CORS policy execution successful.
+2026-05-30 12:54:28.209 +01:00 [INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:8890/scanners - 204 null null 595.1269ms
+2026-05-30 12:54:28.232 +01:00 [INF] Request starting HTTP/1.1 GET http://127.0.0.1:8890/scanners - null null
+2026-05-30 12:54:28.243 +01:00 [INF] CORS policy execution successful.
+2026-05-30 12:54:28.328 +01:00 [INF] Executing endpoint 'HTTP: GET /scanners'
+2026-05-30 12:54:28.771 +01:00 [INF] Setting HTTP status code 200.
+2026-05-30 12:54:28.789 +01:00 [INF] Writing value of type 'List`1' as Json.
+2026-05-30 12:54:28.800 +01:00 [INF] Executed endpoint 'HTTP: GET /scanners'
+2026-05-30 12:54:28.803 +01:00 [INF] Request finished HTTP/1.1 GET http://127.0.0.1:8890/scanners - 200 null application/json; charset=utf-8 571.0402ms
+2026-05-30 12:54:36.239 +01:00 [INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:8890/scanners - null null
+2026-05-30 12:54:36.245 +01:00 [INF] CORS policy execution successful.
+2026-05-30 12:54:36.247 +01:00 [INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:8890/scanners - 204 null null 7.5704ms
+2026-05-30 12:54:36.260 +01:00 [INF] Request starting HTTP/1.1 GET http://127.0.0.1:8890/scanners - null null
+2026-05-30 12:54:36.265 +01:00 [INF] CORS policy execution successful.
+2026-05-30 12:54:36.267 +01:00 [INF] Executing endpoint 'HTTP: GET /scanners'
+2026-05-30 12:54:36.286 +01:00 [INF] Setting HTTP status code 200.
+2026-05-30 12:54:36.289 +01:00 [INF] Writing value of type 'List`1' as Json.
+2026-05-30 12:54:36.292 +01:00 [INF] Executed endpoint 'HTTP: GET /scanners'
+2026-05-30 12:54:36.303 +01:00 [INF] Request finished HTTP/1.1 GET http://127.0.0.1:8890/scanners - 200 null application/json; charset=utf-8 43.3855ms
+2026-05-30 12:54:45.588 +01:00 [INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:8890/scanners - null null
+2026-05-30 12:54:45.604 +01:00 [INF] CORS policy execution successful.
+2026-05-30 12:54:45.611 +01:00 [INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:8890/scanners - 204 null null 19.4636ms
+2026-05-30 12:54:45.627 +01:00 [INF] Request starting HTTP/1.1 GET http://127.0.0.1:8890/scanners - null null
+2026-05-30 12:54:45.633 +01:00 [INF] CORS policy execution successful.
+2026-05-30 12:54:45.637 +01:00 [INF] Executing endpoint 'HTTP: GET /scanners'
+2026-05-30 12:54:45.656 +01:00 [INF] Setting HTTP status code 200.
+2026-05-30 12:54:45.659 +01:00 [INF] Writing value of type 'List`1' as Json.
+2026-05-30 12:54:45.662 +01:00 [INF] Executed endpoint 'HTTP: GET /scanners'
+2026-05-30 12:54:45.664 +01:00 [INF] Request finished HTTP/1.1 GET http://127.0.0.1:8890/scanners - 200 null application/json; charset=utf-8 36.6148ms
+2026-05-30 12:55:49.413 +01:00 [INF] Application is shutting down...
