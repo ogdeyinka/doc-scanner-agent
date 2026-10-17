@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Microsoft.Extensions.Options;
 using NTwain;
@@ -13,11 +14,31 @@ namespace RKSS.ScannerAgent.Services;
 
 public sealed class TwainScannerService(IOptions<ScannerAgentOptions> options, ILogger<TwainScannerService> logger) : IScannerService
 {
+    public const string MissingDsmMessage =
+        "TWAIN is not available on this computer: the 64-bit TWAIN Data Source Manager (twaindsm.dll) is not installed. Install the scanner maker's TWAIN driver, or use the scanner through WIA.";
+
+    private static readonly Lazy<bool> DsmAvailable = new(() =>
+    {
+        // NTwain calls twaindsm.dll on its own message-loop thread; if the DLL is missing the
+        // exception is raised there and ends the whole process, so check before opening a session.
+        if (!NativeLibrary.TryLoad("twaindsm.dll", typeof(TwainScannerService).Assembly, null, out var handle)) return false;
+        NativeLibrary.Free(handle);
+        return true;
+    });
+
+    /// <summary>True when the 64-bit TWAIN Data Source Manager is installed (System32 or next to the agent).</summary>
+    public static bool IsTwainAvailable => DsmAvailable.Value;
+
     public IReadOnlyList<ScannerInfoDto> ListScanners()
     {
         if (!Environment.UserInteractive)
         {
             logger.LogInformation("TWAIN discovery skipped because the agent is not running in an interactive desktop session.");
+            return [];
+        }
+        if (!IsTwainAvailable)
+        {
+            logger.LogWarning(MissingDsmMessage);
             return [];
         }
 
@@ -43,6 +64,7 @@ public sealed class TwainScannerService(IOptions<ScannerAgentOptions> options, I
         {
             throw new InvalidOperationException("TWAIN scanning requires the RKSS Scanner Agent to run in the signed-in user's desktop session. Use WIA for Windows Service deployments.");
         }
+        if (!IsTwainAvailable) throw new InvalidOperationException(MissingDsmMessage);
 
         return Task.Run(() => RunOnSta(() => ScanCore(request, ct)), ct);
     }

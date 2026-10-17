@@ -2,7 +2,7 @@ param(
     [string]$CertPath = $env:SIGN_CERT_PATH,
     [string]$CertSubject = "RK Systems & Services",
     [string]$TimestampUrl = "http://timestamp.digicert.com",
-    [string]$InstallerVersion = "2.0.0"
+    [string]$InstallerVersion = "2.1.3"
 )
 
 $ErrorActionPreference = "Stop"

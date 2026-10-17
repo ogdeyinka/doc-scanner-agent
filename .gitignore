@@ -1,0 +1,8 @@
+# Build output: regenerate with `dotnet publish` and ISCC (see README).
+bin/
+obj/
+publish/
+installer/output/
+logs/
+*.user
+.vs/

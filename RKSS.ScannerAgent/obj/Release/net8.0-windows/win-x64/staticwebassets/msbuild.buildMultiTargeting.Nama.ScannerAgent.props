@@ -1,3 +1,0 @@
-﻿<Project>
-  <Import Project="..\build\Nama.ScannerAgent.props" />
-</Project>

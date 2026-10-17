@@ -5,8 +5,17 @@ using RKSS.ScannerAgent.Models;
 using RKSS.ScannerAgent.Options;
 using RKSS.ScannerAgent.Security;
 using RKSS.ScannerAgent.Services;
+using RKSS.ScannerAgent.Desktop;
 using Serilog;
 using System.ServiceProcess;
+using System.Windows.Forms;
+
+// The manager window: status, start / stop, settings. No web server in this mode.
+if (args.Any(arg => arg.Equals("--manage", StringComparison.OrdinalIgnoreCase)))
+{
+    ManagerApp.Run(relaunched: args.Any(arg => arg.Equals("--relaunched", StringComparison.OrdinalIgnoreCase)));
+    return;
+}
 
 var runAsDesktop = args.Any(arg =>
     arg.Equals("--desktop", StringComparison.OrdinalIgnoreCase) ||
@@ -33,6 +42,15 @@ if (args.Any(arg => arg.Equals("--start-service", StringComparison.OrdinalIgnore
     return;
 }
 
+// One desktop helper per signed-in user: the browser's "rkss-scanner-agent://start"
+// launcher runs this again while it is already running, so later copies just exit.
+Mutex? desktopMutex = null;
+if (runAsDesktop)
+{
+    desktopMutex = new Mutex(true, AgentIdentity.DesktopMutexName, out var firstInstance);
+    if (!firstInstance) return;
+}
+
 var webArgs = args
     .Where(arg =>
         !arg.Equals("--desktop", StringComparison.OrdinalIgnoreCase) &&
@@ -40,7 +58,13 @@ var webArgs = args
         !arg.StartsWith("rkss-scanner-agent:", StringComparison.OrdinalIgnoreCase))
     .ToArray();
 
-var builder = WebApplication.CreateBuilder(webArgs);
+// Always read appsettings.json from the install folder: Windows starts the helper at
+// sign-in and from the browser link with another working folder.
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = webArgs,
+    ContentRootPath = AppContext.BaseDirectory,
+});
 
 if (!runAsDesktop)
 {
@@ -101,6 +125,14 @@ app.Use(async (context, next) =>
         context.Response.Headers["Access-Control-Expose-Headers"] =
             "Content-Disposition,X-RKSS-Page-Count,X-RKSS-Scanner-Name";
         context.Response.Headers["Access-Control-Max-Age"] = "86400";
+        // Chrome / Edge "local network access": a public site (https://dias.nama.gov.ng)
+        // calling this agent on 127.0.0.1 is only allowed when the agent opts in.
+        if (context.Request.Headers.ContainsKey("Access-Control-Request-Private-Network") ||
+            context.Request.Headers.ContainsKey("Access-Control-Request-Local-Network"))
+        {
+            context.Response.Headers["Access-Control-Allow-Private-Network"] = "true";
+            context.Response.Headers["Access-Control-Allow-Local-Network"] = "true";
+        }
     }
 
     if (HttpMethods.IsOptions(context.Request.Method))
@@ -124,6 +156,7 @@ app.MapGet("/health", () => Results.Ok(new
     service = "RKSS Scanner Agent",
     mode = agentMode,
     interactive = Environment.UserInteractive,
+    twain = runAsDesktop ? TwainScannerService.IsTwainAvailable : (bool?)null,
     time = DateTimeOffset.Now
 }));
 
@@ -188,7 +221,27 @@ app.MapPost("/scan/download", async ([FromBody] ScanRequest request,
     }
 });
 
-app.Run(bindUrl);
+if (runAsDesktop)
+{
+    // No console window: the helper lives in the notification area.
+    DesktopTray.Start(app.Lifetime, bindUrl);
+    try
+    {
+        app.Run(bindUrl);
+    }
+    catch (IOException ex)
+    {
+        Log.Error(ex, "Desktop helper could not listen on {BindUrl}", bindUrl);
+        MessageBox.Show(
+            $"The desktop scanner helper could not start on {bindUrl}: {ex.Message}\n\nAnother program may be using this port. Open the RKSS Scanner Agent Manager to choose another port.",
+            AgentIdentity.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+    }
+    GC.KeepAlive(desktopMutex);
+}
+else
+{
+    app.Run(bindUrl);
+}
 
 static bool IsTrustedWebOrigin(string origin, string[] configuredOrigins)
 {

@@ -3,7 +3,7 @@
 ;   ISCC.exe installer\RKSSScannerAgent.iss
 
 #define MyAppName "RKSS Scanner Agent"
-#define MyAppVersion "2.0.0"
+#define MyAppVersion "2.1.3"
 #define MyAppPublisher "RK Systems & Services"
 #define MyServiceName "RKSSScannerAgent"
 #define LegacyServiceName "NamaScannerAgent"
@@ -13,6 +13,10 @@
 AppId={{4F53E4F0-6F7A-4D51-B5B7-9DF2A35B97A2}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
+; Smart App Control judges the setup engine (the .tmp it unpacks to %TEMP%) by its exact
+; bytes, and the only per-build byte is this version label. Keeping it at 2.1.0 keeps the
+; engine identical to one Windows already allows, until the installer is code-signed.
+VersionInfoProductTextVersion=2.1.0
 AppPublisher={#MyAppPublisher}
 DefaultDirName={sd}\RKSS\ScannerAgent\app
 DefaultGroupName=RKSS Scanner Agent
@@ -37,32 +41,49 @@ SignTool=rkss
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Create a desktop shortcut for service status"; GroupDescription: "Additional icons:"; Flags: unchecked
+Name: "desktopicon"; Description: "Create a desktop shortcut to the RKSS Scanner Agent Manager"; GroupDescription: "Additional icons:"; Flags: unchecked
 
 [Dirs]
 Name: "{sd}\RKSS\ScannerAgent\Scans"
+Name: "{app}\logs"
 
 [Files]
 Source: "..\publish\rkss-win-x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "logs\*"
 
 [Icons]
+Name: "{group}\RKSS Scanner Agent Manager"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--manage"; WorkingDir: "{app}"
+Name: "{group}\Start RKSS Scanner Agent (desktop helper)"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; WorkingDir: "{app}"
 Name: "{group}\RKSS Scanner Agent Status"; Filename: "{code:GetHealthUrl}"
-Name: "{group}\RKSS Scanner Agent Desktop"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; WorkingDir: "{app}"
-Name: "{commondesktop}\RKSS Scanner Agent Status"; Filename: "{code:GetHealthUrl}"; Tasks: desktopicon
-Name: "{commonstartup}\RKSS Scanner Agent Desktop"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; WorkingDir: "{app}"
+Name: "{commondesktop}\RKSS Scanner Agent Manager"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--manage"; WorkingDir: "{app}"; Tasks: desktopicon
+
+[InstallDelete]
+; Older versions started the helper from the Startup folder; it now uses the Run key below.
+Type: files; Name: "{commonstartup}\RKSS Scanner Agent Desktop.lnk"
 
 [Registry]
+; The desktop helper starts in the background whenever anyone signs in (switchable in the manager).
+Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "RKSSScannerAgentDesktop"; ValueData: """{app}\{#MyAppExeName}"" --desktop"; Flags: uninsdeletevalue
 Root: HKCR; Subkey: "rkss-scanner-agent"; ValueType: string; ValueName: ""; ValueData: "URL:RKSS Scanner Agent"; Flags: uninsdeletekey
 Root: HKCR; Subkey: "rkss-scanner-agent"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""; Flags: uninsdeletekey
 Root: HKCR; Subkey: "rkss-scanner-agent\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" --desktop ""%1"""; Flags: uninsdeletekey
 
 [Run]
+; The service runs as LocalSystem from this folder, so only administrators may change its files.
+; Users keep read/run access, plus write access to logs (the desktop helper runs as the user).
+; Set on the folders only (no /T): files inherit from them. With /T each file loses its
+; inherited permissions and the folder-only grants do not apply to files, leaving them unreadable.
+Filename: "{sys}\icacls.exe"; Parameters: """{app}"" /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F *S-1-5-32-545:(OI)(CI)RX /C /Q"; Flags: runhidden waituntilterminated; StatusMsg: "Securing the installation folder..."
+Filename: "{sys}\icacls.exe"; Parameters: """{app}\logs"" /grant *S-1-5-32-545:(OI)(CI)M /C /Q"; Flags: runhidden waituntilterminated
 Filename: "{sys}\sc.exe"; Parameters: "create {#MyServiceName} binPath= ""{app}\{#MyAppExeName}"" start= auto DisplayName= ""{#MyAppName}"""; Flags: runhidden waituntilterminated; StatusMsg: "Installing scanner agent service..."; BeforeInstall: ConfigureAppSettings
+; Restart the service by itself if it ever stops unexpectedly.
+Filename: "{sys}\sc.exe"; Parameters: "failure {#MyServiceName} reset= 86400 actions= restart/5000/restart/10000/restart/30000"; Flags: runhidden waituntilterminated
 Filename: "{sys}\sc.exe"; Parameters: "description {#MyServiceName} ""Local RKSS DIAS scanner bridge for WIA/TWAIN-compatible desktop scanners."""; Flags: runhidden waituntilterminated
 Filename: "{sys}\sc.exe"; Parameters: "start {#MyServiceName}"; Flags: runhidden waituntilterminated; StatusMsg: "Starting scanner agent service..."
 Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; WorkingDir: "{app}"; Flags: nowait runasoriginaluser skipifdoesntexist; StatusMsg: "Starting desktop TWAIN scanner helper..."
+Filename: "{app}\{#MyAppExeName}"; Parameters: "--manage"; WorkingDir: "{app}"; Description: "Open the RKSS Scanner Agent Manager"; Flags: nowait postinstall skipifsilent unchecked runasoriginaluser
 
 [UninstallRun]
+Filename: "{sys}\taskkill.exe"; Parameters: "/IM {#MyAppExeName} /F"; Flags: runhidden waituntilterminated; RunOnceId: "StopRKSSScannerAgentDesktop"
 Filename: "{sys}\sc.exe"; Parameters: "stop {#MyServiceName}"; Flags: runhidden waituntilterminated; RunOnceId: "StopRKSSScannerAgent"; Check: ServiceExists
 Filename: "{sys}\sc.exe"; Parameters: "delete {#MyServiceName}"; Flags: runhidden waituntilterminated; RunOnceId: "DeleteRKSSScannerAgent"; Check: ServiceExists
 
@@ -139,7 +160,7 @@ begin
   ConfigPage.Add('Allowed Origins (comma-separated):', False);
   ConfigPage.Values[0] := 'http://127.0.0.1:8890';
   ConfigPage.Values[1] := 'http://127.0.0.1:8891';
-  ConfigPage.Values[2] := 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,https://rkssdias.test,http://localhost,http://127.0.0.1';
+  ConfigPage.Values[2] := 'https://dias.nama.gov.ng,http://localhost:3000,http://127.0.0.1:3000';
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -197,7 +218,7 @@ begin
   StringChangeEx(Content, '"DesktopBindUrl": "http://127.0.0.1:8891"', DesktopBindUrlJson, True);
   StringChangeEx(
     Content,
-    '"AllowedOrigins": [ "http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173", "http://127.0.0.1:5173", "https://rkssdias.test", "http://localhost", "http://127.0.0.1" ]',
+    '"AllowedOrigins": [ "https://dias.nama.gov.ng", "http://localhost:3000", "http://127.0.0.1:3000" ]',
     OriginsJson,
     True
   );
@@ -255,27 +276,56 @@ begin
   Sleep(1000);
 end;
 
-function RemoveExistingInstallFolder(): Boolean;
-var
-  ExistingPath: String;
-  UninstallKey: String;
+function RemoveExistingInstallFolder(ExistingPath: String): Boolean;
 begin
   Result := True;
-  ExistingPath := '';
-  UninstallKey := 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{4F53E4F0-6F7A-4D51-B5B7-9DF2A35B97A2}_is1';
-
-  RegQueryStringValue(HKLM, UninstallKey, 'InstallLocation', ExistingPath);
-  if Trim(ExistingPath) = '' then
-    ExistingPath := ExpandConstant('{app}');
-
   if DirExists(ExistingPath) then
   begin
-    WizardForm.StatusLabel.Caption := 'Removing existing scanner agent files...';
+    WizardForm.StatusLabel.Caption := 'Removing leftover scanner agent files...';
     Result := DelTree(ExistingPath, True, True, True);
   end;
 end;
 
+const
+  UninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{4F53E4F0-6F7A-4D51-B5B7-9DF2A35B97A2}_is1';
+
+function ExistingInstallPath(): String;
+begin
+  Result := '';
+  RegQueryStringValue(HKLM, UninstallKey, 'InstallLocation', Result);
+  if Trim(Result) = '' then
+    Result := ExpandConstant('{app}');
+  Result := RemoveBackslashUnlessRoot(Trim(Result));
+end;
+
+// Remove the previous version with its own uninstaller (service, shortcuts, registry, files)
+// before installing, instead of copying over it.
+procedure RunPreviousUninstaller();
+var
+  UninstallString: String;
+  ResultCode: Integer;
+  I: Integer;
+begin
+  if not RegQueryStringValue(HKLM, UninstallKey, 'UninstallString', UninstallString) then
+    Exit;
+  UninstallString := RemoveQuotes(Trim(UninstallString));
+  if not FileExists(UninstallString) then
+    Exit;
+  WizardForm.StatusLabel.Caption := 'Uninstalling the previous RKSS Scanner Agent...';
+  Exec(UninstallString, '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  // The uninstaller hands over to a copy of itself and returns at once: wait (up to 60 s)
+  // until it has removed its own registration.
+  for I := 1 to 120 do
+  begin
+    if not RegKeyExists(HKLM, UninstallKey) then
+      Break;
+    Sleep(500);
+  end;
+end;
+
 function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ExistingPath: String;
 begin
   Result := '';
 
@@ -285,10 +335,13 @@ begin
   ExistingInstallCleaned := True;
   WizardForm.StatusLabel.Caption := 'Checking for existing scanner agent installation...';
 
+  StopDesktopAgent();
   StopAndDeleteService('{#LegacyServiceName}', 'legacy scanner agent service');
   StopAndDeleteService('{#MyServiceName}', 'existing scanner agent service');
-  StopDesktopAgent();
+  ExistingPath := ExistingInstallPath();
+  RunPreviousUninstaller();
 
-  if not RemoveExistingInstallFolder() then
+  // Anything the uninstaller left behind (logs, settings backups) goes too.
+  if not RemoveExistingInstallFolder(ExistingPath) then
     Result := 'The existing RKSS Scanner Agent installation could not be fully removed. Close any running agent files and run this installer again as Administrator.';
 end;
